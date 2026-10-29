@@ -1,5 +1,7 @@
 # Running the demo
 
+For the AWS demonstration, use [the current release handoff](deploy/DEMO_READY.md). Set `DEMO_MODE=true` to seed the synthetic workspaces at startup and show **Open student demo** / **Open teacher demo**, without signup or a password. Leave it off for ordinary account-based deployments.
+
 ## Start everything
 
 ```powershell

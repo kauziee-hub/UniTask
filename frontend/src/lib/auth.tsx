@@ -4,6 +4,8 @@ import { api, getToken, setToken, setUnauthorizedHandler, type AuthResponse, typ
 interface AuthContextValue {
   user: User | null
   loading: boolean
+  demoEnabled: boolean
+  enterDemo: (role: Role) => Promise<AuthResponse>
   login: (email: string, password: string) => Promise<AuthResponse>
   demoLogin: (role: Role) => Promise<AuthResponse>
   register: (name: string, email: string, password: string, role: Role) => Promise<AuthResponse>
@@ -16,6 +18,13 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(() => Boolean(getToken()))
+  const [demoEnabled, setDemoEnabled] = useState(false)
+
+  useEffect(() => {
+    api.get<{ demo_enabled: boolean }>('/api/auth/config')
+      .then((config) => setDemoEnabled(config.demo_enabled))
+      .catch(() => setDemoEnabled(false))
+  }, [])
 
   const logout = useCallback(() => {
     setToken(null)
@@ -44,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
+      demoEnabled,
+      enterDemo: (role) => api.post<AuthResponse>(`/api/auth/demo?role=${role}`, {}).then(accept),
       logout,
       login: (email, password) => api.post<AuthResponse>('/api/auth/login', { email, password }).then(accept),
       demoLogin: (role) => api.post<AuthResponse>('/api/auth/demo-login', { role }).then(accept),
@@ -51,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         api.post<AuthResponse>('/api/auth/register', { name, email, password, role }).then(accept),
       confirm: (email, code) => api.post<AuthResponse>('/api/auth/confirm', { email, code }),
     }),
-    [user, loading, logout, accept],
+    [user, loading, demoEnabled, logout, accept],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

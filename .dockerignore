@@ -1,4 +1,7 @@
 .git
+.venv
+.env
+.env.*
 .github
 .claude
 .vscode

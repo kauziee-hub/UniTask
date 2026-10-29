@@ -44,6 +44,7 @@ class AuthResponse(BaseModel):
 class AuthConfig(BaseModel):
     provider: Literal["local", "cognito"]
     demo: bool = False
+    demo_enabled: bool = False
 
 
 class DemoLogin(BaseModel):

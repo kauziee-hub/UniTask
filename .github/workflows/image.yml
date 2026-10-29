@@ -1,0 +1,110 @@
+name: Test and publish demo image
+
+on:
+  push:
+    branches: [release/unitask-3]
+  workflow_dispatch:
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: unitask
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: unitask_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U unitask -d unitask_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: npm ci --no-audit --no-fund && npm run lint && npm run build
+        working-directory: frontend
+      - run: pip install -r backend/requirements-dev.txt
+      - name: SQLite journeys and migrations
+        run: python -m pytest backend/tests -q
+      - name: PostgreSQL journeys and migrations
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://unitask:ci-only-password@localhost:5432/unitask_test
+        run: python -m pytest backend/tests -q
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image names
+        id: names
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "short=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Build the actual deployment image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: |
+            ${{ steps.names.outputs.image }}:${{ github.sha }}
+            ${{ steps.names.outputs.image }}:${{ steps.names.outputs.short }}
+            ${{ steps.names.outputs.image }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify container startup, demo session and website
+        env:
+          IMAGE: ${{ steps.names.outputs.image }}:${{ github.sha }}
+        run: |
+          docker run -d --name smoke -p 8000:8000 \
+            -e DEMO_MODE=true -e STORAGE_PROVIDER=local -e LLM_PROVIDER=none \
+            -e SCHEDULER=external -e UNITASK_SECRET_KEY=ci-only-container-smoke-secret "$IMAGE"
+          python scripts/smoke_demo.py http://localhost:8000
+      - name: Container logs
+        if: always()
+        run: docker logs smoke || true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified image
+        env:
+          IMAGE: ${{ steps.names.outputs.image }}
+          SHORT: ${{ steps.names.outputs.short }}
+        run: |
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:$SHORT"
+          docker push "$IMAGE:latest"
+          echo "### AWS deployment image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set package visibility to Public before ECS pulls anonymously." >> "$GITHUB_STEP_SUMMARY"

@@ -5,7 +5,7 @@ import { api, type Role } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { login, register, confirm, demoLogin } = useAuth()
+  const { login, register, confirm, demoLogin, demoEnabled, enterDemo } = useAuth()
   const [demo, setDemo] = useState(false)
   const navigate = useNavigate()
   const [role, setRole] = useState<Role>('student')
@@ -26,6 +26,19 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const isRegister = mode === 'register'
+
+  const openDemo = async (demoRole: Role) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await enterDemo(demoRole)
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open the demo.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -77,6 +90,21 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       </section>
 
       <section className="auth-form">
+        {demoEnabled ? (
+          <div style={{ display: 'grid', gap: 20, width: '100%', maxWidth: 380 }}>
+            <div>
+              <p className="kicker">Cloud Architecture demonstration</p>
+              <h2 className="title" style={{ marginTop: 12 }}>Try UniTask</h2>
+              <p className="muted" style={{ marginTop: 8 }}>Open the prepared workspace. No signup needed.</p>
+            </div>
+            <ErrorNote>{error}</ErrorNote>
+            <button className="btn primary" type="button" disabled={busy} onClick={() => void openDemo('student')}>
+              {busy ? 'Opening workspace…' : 'Open student demo'}
+            </button>
+            <button className="btn" type="button" disabled={busy} onClick={() => void openDemo('teacher')}>Open teacher demo</button>
+            <p className="muted" style={{ fontSize: 13 }}>Shared demonstration with synthetic courses, notes and assignments. Changes are visible to other demo visitors.</p>
+          </div>
+        ) : (
         <form onSubmit={submit}>
           <div>
             <h2 className="title">{confirming ? 'Check your email' : isRegister ? 'Create an account' : 'Sign in'}</h2>
@@ -152,7 +180,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             {busy ? 'One moment…' : confirming ? 'Verify' : isRegister ? 'Create account' : 'Sign in'}
           </button>
 
-          {demo && !confirming && (
+          {demo && !demoEnabled && !confirming && (
             <div className="demo-entry">
               <span className="kicker">Or explore the demo workspace</span>
               <div className="row" style={{ gap: 8 }}>
@@ -170,6 +198,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </p>
           )}
         </form>
+        )}
       </section>
     </main>
   )

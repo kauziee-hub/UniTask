@@ -70,7 +70,7 @@ async def lifespan(_: FastAPI):
     if os.getenv("RUN_MIGRATIONS", "true").lower() != "false":
         revision = upgrade_database(engine)
         logger.info("Database schema at revision %s.", revision)
-    if os.getenv("SEED_DEMO", "false").lower() == "true":
+    if os.getenv("SEED_DEMO", "false").lower() == "true" or os.getenv("DEMO_MODE", "false").lower() == "true":
         from app.demo_seed import refresh
 
         with SessionLocal() as db:

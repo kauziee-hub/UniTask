@@ -1,0 +1,72 @@
+{
+  "url": "https://un-77dd2c16f6e94ab593853d98dc3c3504.ecs.ap-south-1.on.aws",
+  "checked_at": "2026-10-29T10:52:15.090261+00:00",
+  "dns_override": "43.204.21.17",
+  "tls_verification": true,
+  "checks": [
+    {
+      "name": "Public HTTPS health",
+      "passed": true,
+      "detail": "3.0.0"
+    },
+    {
+      "name": "Signup-free demo enabled",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Website and SPA deep links",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Student demo entry and courses",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Teacher demo entry and courses",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Student dashboard, subjects, materials, exams and insights",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Private S3 upload, processing and signed download",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Verification upload cleaned up",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Study Desk notes/checklist persist across fresh requests",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Real Gemini tutor inference",
+      "passed": true,
+      "detail": "model=gemini-3.5-flash; citations=0"
+    },
+    {
+      "name": "Tutor conversation persists in RDS",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "tutor_reply_excerpt": "Let's start with a concrete example grammar:\nS -> a B\nB -> b | e   (where e represents epsilon, an empty string)\n\n1. FIRST sets [S3]:\nFIRST(S) = {a}, because any string derived from S starts with terminal 'a'.\nFIRST(B) = {b, e}, because B can produce 'b' or vanish into e.\n\n2. FOLLOW sets [S3]:\nFOLLOW(S) = {$}, where $ is the end-of-input marker, as S is the start symbol.\nFOLLOW(B) = {$}, because B is at the end of S -> a B, so whatever can follow S also follows B.\n\nGeneral Idea:\n- FIRST(X): The ",
+  "ai": {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "fast_model": "gemini-flash-lite-latest",
+    "fallback": null,
+    "last_used": "gemini"
+  },
+  "success": true
+}

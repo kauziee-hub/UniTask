@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User
 from ..schemas import AuthConfig, AuthResponse, ConfirmRequest, DemoLogin, LoginRequest, RegisterRequest, UserRead
-from ..security import auth_provider, get_current_user, hash_password, issue_token, verify_password
+from ..security import auth_provider, demo_enabled, get_current_user, hash_password, issue_token, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,15 +31,32 @@ def _demo_user(db: Session, role: str) -> User | None:
 
 @router.get("/config", response_model=AuthConfig)
 def config(db: Session = Depends(get_db)) -> AuthConfig:
-    return AuthConfig(provider=auth_provider(), demo=_demo_user(db, "student") is not None)
+    return AuthConfig(provider=auth_provider(), demo=_demo_user(db, "student") is not None, demo_enabled=demo_enabled())
 
 
 @router.post("/demo-login", response_model=AuthResponse)
 def demo_login(payload: DemoLogin, db: Session = Depends(get_db)) -> AuthResponse:
-    """One-click entry to the synthetic demo workspace for presentations."""
+    """One-click entry to the synthetic demo workspace when its data exists (local servers)."""
     user = _demo_user(db, payload.role)
     if user is None:
         raise HTTPException(404, "There is no demo workspace on this server.")
+    return AuthResponse(token=issue_token(user), user=UserRead.model_validate(user))
+
+
+def config() -> AuthConfig:
+    return AuthConfig(provider=auth_provider(), demo_enabled=demo_enabled())
+
+
+@router.post("/demo", response_model=AuthResponse)
+def demo(role: Literal["student", "teacher"] = "student", db: Session = Depends(get_db)) -> AuthResponse:
+    if not demo_enabled():
+        raise HTTPException(404, "Demo entry is disabled.")
+    from ..demo_seed import STUDENTS, TEACHERS
+
+    name, email = (STUDENTS if role == "student" else TEACHERS)[0]
+    user = _user_by_email(db, email)
+    if user is None or user.name != name or user.role != role:
+        raise HTTPException(503, "Demo data is not ready. Enable SEED_DEMO and restart the service.")
     return AuthResponse(token=issue_token(user), user=UserRead.model_validate(user))
 
 
