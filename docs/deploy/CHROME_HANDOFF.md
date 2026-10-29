@@ -1,5 +1,7 @@
 # UniTask 3.0 — AWS deployment handoff for Claude Chrome
 
+> **Current demo release:** follow [DEMO_READY.md](DEMO_READY.md) for GitHub Actions/GHCR image builds, signup-free entry and the simplified Gemini configuration. It supersedes steps 8–11 below while AWS account verification blocks CloudShell/CodeBuild/Bedrock.
+
 > **Actual resources (account 888583764945, ap-south-1):** bucket `unitask-files-888583764945`; RDS `unitask-db.c34kukqgyu7c.ap-south-1.rds.amazonaws.com` (db `unitask`, user `unitask`); ECR `888583764945.dkr.ecr.ap-south-1.amazonaws.com/unitask`; task role `unitask-task-role`.
 > **Bedrock is currently blocked for this new account** (`Operation not allowed`; support case open). The app tries Bedrock first and falls back to Gemini, and switches to Bedrock by itself once AWS lifts the block. No redeploy needed.
 

@@ -43,6 +43,7 @@ class AuthResponse(BaseModel):
 
 class AuthConfig(BaseModel):
     provider: Literal["local", "cognito"]
+    demo_enabled: bool = False
 
 
 class CourseCreate(BaseModel):

@@ -37,6 +37,10 @@ def auth_provider() -> str:
     return os.getenv("AUTH_PROVIDER", "local").strip().lower()
 
 
+def demo_enabled() -> bool:
+    return auth_provider() == "local" and os.getenv("DEMO_MODE", os.getenv("SEED_DEMO", "false")).lower() == "true"
+
+
 @lru_cache
 def secret_key() -> str:
     configured = os.getenv("UNITASK_SECRET_KEY", "").strip()
