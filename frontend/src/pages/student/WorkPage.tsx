@@ -1,9 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { WorkRow } from '../../components/WorkRow'
 import { Empty, ErrorNote, Sheet, Spinner } from '../../components/ui'
 import { api, type Course, type WorkItem } from '../../lib/api'
-import { bucketFor, fromLocalInput, type Bucket } from '../../lib/format'
+import { bucketFor, dueLabel, fromLocalInput, minutesLabel, type Bucket } from '../../lib/format'
 import { useLoad } from '../../lib/useLoad'
 
 const ORDER: Bucket[] = ['Overdue', 'Today', 'Tomorrow', 'This week', 'Later', 'No due date']
@@ -81,6 +82,81 @@ function NewTask({ courses, onCreated }: { courses: Course[]; onCreated: () => v
   )
 }
 
+interface Load {
+  date: string
+  minutes: number
+  items: number
+  exams: number
+}
+
+/** Fourteen days of estimated work and the days where deadlines pile up. */
+function LoadAside({ items }: { items: WorkItem[] }) {
+  const { data } = useLoad<{ workload: Load[] }>('/api/insights')
+  const days = data?.workload ?? []
+  const peak = Math.max(60, ...days.map((d) => d.minutes))
+  const open = items.filter((i) => (i.status === 'assigned' || i.status === 'working') && i.due_at && !i.removed_at_source)
+  const byDay = new Map<string, WorkItem[]>()
+  for (const item of open) {
+    const key = new Date(item.due_at!).toDateString()
+    byDay.set(key, [...(byDay.get(key) ?? []), item])
+  }
+  const clashes = [...byDay.values()].filter((list) => list.length >= 2 && new Date(list[0].due_at!) > new Date())
+  const unconfirmed = open.filter((i) => i.due_confidence === 'inferred')
+  const total = open.reduce((sum, i) => sum + i.priority.effort_minutes, 0)
+  return (
+    <aside>
+      <div className="panel">
+        <div className="panel-head"><h3>Next 14 days</h3><Link className="small muted" to="/planner">Plan it →</Link></div>
+        <div className="load-strip" aria-label="Estimated work due per day">
+          {days.map((d) => (
+            <span
+              key={d.date}
+              className={d.exams ? 'exam' : d.minutes ? '' : 'zero'}
+              style={{ height: `${Math.max(3, (d.minutes / peak) * 100)}%` }}
+              title={`${d.date}: ${minutesLabel(d.minutes)} due${d.exams ? ' · exam' : ''}`}
+            />
+          ))}
+        </div>
+        <div className="load-days">{days.map((d) => <span key={d.date}>{'SMTWTFS'[new Date(d.date + 'T00:00').getDay()]}</span>)}</div>
+        <p className="tiny muted" style={{ marginTop: 10 }}>
+          {minutesLabel(total)} of open work in total. Orange days have an exam.
+        </p>
+      </div>
+      {clashes.length > 0 && (
+        <div className="panel tone-accent">
+          <h3>Deadlines that collide</h3>
+          <ul className="warn-list" style={{ marginTop: 8 }}>
+            {clashes.slice(0, 4).map((list) => (
+              <li key={list[0].id}>
+                <span className="small">
+                  <strong style={{ fontWeight: 600 }}>{dueLabel(list[0].due_at!).split(',')[0]}:</strong>{' '}
+                  {list.map((i) => i.title).join(' + ')}
+                  <span className="muted tiny" style={{ display: 'block' }}>
+                    {minutesLabel(list.reduce((s, i) => s + i.priority.effort_minutes, 0))} of work due the same day. Start the bigger one first.
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {unconfirmed.length > 0 && (
+        <div className="panel">
+          <h3>Dates to confirm</h3>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            {unconfirmed.length} date{unconfirmed.length > 1 ? 's were' : ' was'} read from text you pasted. Check {unconfirmed.length > 1 ? 'them' : 'it'} against the source.
+          </p>
+          <Link className="small" to={`/work/${unconfirmed[0].id}`}>Check “{unconfirmed[0].title}” →</Link>
+        </div>
+      )}
+      <div className="panel">
+        <h3>Too much on?</h3>
+        <p className="small muted" style={{ marginTop: 6 }}>Press <span className="kbd">Ctrl K</span> and choose “I'm behind”, or use the button at the top. You get a realistic plan for the next three days, including what to ask your teacher for.</p>
+      </div>
+    </aside>
+  )
+}
+
 export function WorkPage() {
   const { data, error, loading, reload } = useLoad<WorkItem[]>('/api/work')
   const { data: courses } = useLoad<Course[]>('/api/courses')
@@ -102,7 +178,7 @@ export function WorkPage() {
   }, [data, filter])
 
   return (
-    <main className="page">
+    <main className="page wide">
       <div className="spread">
         <div>
           <p className="kicker">Deadlines</p>
@@ -123,6 +199,8 @@ export function WorkPage() {
 
       <ErrorNote>{error}</ErrorNote>
       {!data && loading && <div style={{ marginTop: 24 }}><Spinner /></div>}
+      <div className="with-aside" style={{ marginTop: 6 }}>
+      <div>
 
       {data && groups.length === 0 && (
         <Empty title="Nothing open here">
@@ -151,6 +229,9 @@ export function WorkPage() {
           {showDone && <ul className="list">{done.map((item) => <WorkRow key={item.id} item={item} />)}</ul>}
         </section>
       )}
+      </div>
+      <LoadAside items={data ?? []} />
+      </div>
 
       <Sheet open={adding} title="Add a task" onClose={() => setAdding(false)}>
         <NewTask

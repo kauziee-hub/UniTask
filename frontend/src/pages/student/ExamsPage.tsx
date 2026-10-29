@@ -256,8 +256,8 @@ export function ExamPage() {
             <p className="muted tiny" style={{ margin: '4px 0 8px' }}>{exam.explicit_topics ? 'Chosen for this exam.' : 'Whole syllabus of the subject.'}</p>
             <div className="stack tight">
               {exam.topics.map((t) => (
-                <div key={t.id} className="spread small">
-                  <Link to={`/topics/${t.id}`} className="clip">{t.title}</Link>
+                <div key={t.id} className="pick-row small">
+                  <Link to={`/topics/${t.id}`} className="clip" title={t.title}>{t.title}</Link>
                   <StatusPick topic={t} onChange={(s) => setStatus(t, s)} />
                 </div>
               ))}

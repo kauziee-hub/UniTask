@@ -260,12 +260,12 @@ textarea {
 
 .page {
   width: 100%;
-  max-width: 980px;
-  padding: 44px 48px 96px;
+  max-width: 1320px;
+  padding: 36px clamp(20px, 3.4vw, 56px) 96px;
 }
 
 .page.narrow {
-  max-width: 760px;
+  max-width: 1040px;
 }
 
 .mobile-bar {

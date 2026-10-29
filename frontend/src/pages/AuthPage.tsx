@@ -1,14 +1,26 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ErrorNote } from '../components/ui'
-import type { Role } from '../lib/api'
+import { api, type Role } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { login, register, confirm } = useAuth()
+  const { login, register, confirm, demoLogin } = useAuth()
+  const [demo, setDemo] = useState(false)
   const navigate = useNavigate()
   const [role, setRole] = useState<Role>('student')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  useEffect(() => {
+    api.get<{ demo: boolean }>('/api/auth/config').then((c) => {
+      setDemo(c.demo)
+      // Demo servers: the sign-in form starts filled with the demo student so presenting takes one click.
+      if (c.demo && mode === 'login') {
+        setEmail((v) => v || 'riya.sharma@example.edu')
+        setPassword((v) => v || 'demo-student-2026')
+      }
+    }).catch(() => undefined)
+  }, [mode])
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -129,6 +141,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   minLength={isRegister ? 8 : 1}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </label>
             </>
@@ -137,6 +151,17 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <button className="btn primary" type="submit" disabled={busy} style={{ height: 40 }}>
             {busy ? 'One moment…' : confirming ? 'Verify' : isRegister ? 'Create account' : 'Sign in'}
           </button>
+
+          {demo && !confirming && (
+            <div className="demo-entry">
+              <span className="kicker">Or explore the demo workspace</span>
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn" type="button" disabled={busy} onClick={() => demoLogin('student').then(() => navigate('/')).catch((e) => setError(e.message))}>As a student</button>
+                <button className="btn" type="button" disabled={busy} onClick={() => demoLogin('teacher').then(() => navigate('/')).catch((e) => setError(e.message))}>As a teacher</button>
+              </div>
+              <span className="tiny muted">Synthetic data, clearly labelled “(Demo)”. Nothing real.</span>
+            </div>
+          )}
 
           {!confirming && (
             <p className="muted" style={{ fontSize: 13 }}>

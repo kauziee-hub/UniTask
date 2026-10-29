@@ -40,10 +40,11 @@ def _course_read(db: Session, course: Course, my_role: str, user: User) -> Cours
     )
     work_ids = select(Coursework.id).where(Coursework.course_id == course.id, Coursework.removed_at_source.is_(False))
     if my_role == "teacher":
-        # Submissions waiting for the teacher to review.
+        # Submissions waiting for the teacher to review (class assignments only, never students' private tasks).
+        class_work = work_ids.where(Coursework.source == "unitask")
         open_count = db.scalar(
             select(func.count()).select_from(Submission).where(
-                Submission.coursework_id.in_(work_ids), Submission.status == "turned_in"
+                Submission.coursework_id.in_(class_work), Submission.status == "turned_in"
             )
         )
     else:
@@ -255,7 +256,8 @@ def list_course_work(course_id: int, user: User = Depends(get_current_user), db:
         )
     )
     if role == "teacher":
-        return [_teacher_read(db, work) for work in works]
+        # Only the class's own assignments: a student's personal task filed under this class stays private.
+        return [_teacher_read(db, work) for work in works if work.source == "unitask"]
     visible = [w for w in works if w.source == "unitask" or w.owner_id == user.id]
     return [to_work_item(work, get_submission(db, work, user)) for work in visible]
 

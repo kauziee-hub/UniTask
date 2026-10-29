@@ -11,3 +11,5 @@ __pycache__/
 backend/.secret_key
 .claude/settings.local.json
 backend/static/
+.playwright-mcp/
+docs/guide/UniTask_Feature_Guide.html

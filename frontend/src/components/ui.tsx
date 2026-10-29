@@ -47,11 +47,13 @@ export function Sheet({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   open: boolean
   title: string
   onClose: () => void
   children: ReactNode
+  wide?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
@@ -65,7 +67,7 @@ export function Sheet({
     if (!open && dialog.open) dialog.close()
   }, [open])
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} aria-label={title}>
+    <dialog ref={ref} className={`sheet${wide ? ' wide' : ''}`} onClose={onClose} aria-label={title}>
       <div className="sheet-head">
         <h2 className="title" style={{ fontSize: 24 }}>{title}</h2>
         <button className="btn ghost icon" type="button" onClick={onClose} aria-label="Close">

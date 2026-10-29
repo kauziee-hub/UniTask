@@ -28,6 +28,7 @@ from app.routers import (  # noqa: E402
     integrations,
     library,
     planner,
+    recovery,
     study,
     subjects,
     work,
@@ -70,11 +71,11 @@ async def lifespan(_: FastAPI):
         revision = upgrade_database(engine)
         logger.info("Database schema at revision %s.", revision)
     if os.getenv("SEED_DEMO", "false").lower() == "true":
-        from app.demo_seed import seed
+        from app.demo_seed import refresh
 
         with SessionLocal() as db:
-            if seed(db):
-                logger.info("Synthetic demo accounts created (SEED_DEMO=true).")
+            if refresh(db):
+                logger.info("Synthetic demo workspace created or updated (SEED_DEMO=true).")
     jobs.register_all()
     task = None
     if os.getenv("SCHEDULER", "internal").lower() == "internal":
@@ -110,6 +111,7 @@ for router in (
     library.router,
     exams.router,
     planner.router,
+    recovery.router,
     study.router,
     imports.router,
     integrations.router,

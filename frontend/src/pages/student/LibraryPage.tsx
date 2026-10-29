@@ -135,7 +135,8 @@ export function MaterialList({ materials, onChanged }: { materials: Material[]; 
 }
 
 function Ask({ subjects }: { subjects: Subject[] }) {
-  const [question, setQuestion] = useState('')
+  const [params] = useSearchParams()
+  const [question, setQuestion] = useState(() => params.get('q') ?? '')
   const [course, setCourse] = useState('')
   const [answer, setAnswer] = useState<{ answer: string; citations: Citation[]; conversation_id: number } | null>(null)
   const { busy, error, run } = useAction()

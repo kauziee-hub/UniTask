@@ -5,6 +5,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<AuthResponse>
+  demoLogin: (role: Role) => Promise<AuthResponse>
   register: (name: string, email: string, password: string, role: Role) => Promise<AuthResponse>
   confirm: (email: string, code: string) => Promise<AuthResponse>
   logout: () => void
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       logout,
       login: (email, password) => api.post<AuthResponse>('/api/auth/login', { email, password }).then(accept),
+      demoLogin: (role) => api.post<AuthResponse>('/api/auth/demo-login', { role }).then(accept),
       register: (name, email, password, role) =>
         api.post<AuthResponse>('/api/auth/register', { name, email, password, role }).then(accept),
       confirm: (email, code) => api.post<AuthResponse>('/api/auth/confirm', { email, code }),

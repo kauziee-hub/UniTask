@@ -77,13 +77,19 @@ def search(
 
     docs = [(page, material, Counter(tokens(page.text))) for page, material in rows]
     average = sum(sum(c.values()) for _, _, c in docs) / len(docs) or 1
-    df = {term: sum(1 for _, _, c in docs if term in c) for term in terms}
+    def term_freq(counts: Counter, term: str) -> int:
+        # Exact word, or a word it begins ("normal" -> "normalization") for terms of 4+ letters.
+        if len(term) < 4:
+            return counts.get(term, 0)
+        return sum(n for word, n in counts.items() if word == term or word.startswith(term))
+
+    df = {term: sum(1 for _, _, c in docs if term_freq(c, term)) for term in terms}
     hits: list[Hit] = []
     for page, material, counts in docs:
         length = sum(counts.values()) or 1
         score = 0.0
         for term in terms:
-            tf = counts.get(term, 0)
+            tf = term_freq(counts, term)
             if not tf:
                 continue
             idf = math.log(1 + (len(docs) - df[term] + 0.5) / (df[term] + 0.5))

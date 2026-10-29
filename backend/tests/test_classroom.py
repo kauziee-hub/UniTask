@@ -141,3 +141,15 @@ def test_teacher_cannot_use_student_endpoints(client):
     teacher = register(client, "Dr Mehta", "teacher")
     assert client.get("/api/today", headers=teacher).status_code == 403
     assert client.get("/api/integrations/teams", headers=teacher).status_code == 403
+
+
+def test_personal_task_in_a_class_stays_private_from_the_teacher(client):
+    teacher = register(client, "Dr Mehta", "teacher")
+    student = register(client, "Asha Rao", "student")
+    course = client.post("/api/courses", headers=teacher, json={"name": "Compilers"}).json()
+    client.post("/api/courses/join", headers=student, json={"code": course["join_code"]})
+    client.post("/api/work", headers=student, json={"title": "My private revision", "course_id": course["id"]})
+    teacher_view = client.get(f"/api/courses/{course['id']}/coursework", headers=teacher).json()
+    assert all(w["title"] != "My private revision" for w in teacher_view)
+    student_view = client.get(f"/api/courses/{course['id']}/coursework", headers=student).json()
+    assert any(w["title"] == "My private revision" for w in student_view)

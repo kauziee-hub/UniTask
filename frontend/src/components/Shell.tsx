@@ -9,7 +9,9 @@ import {
   Inbox,
   Layers,
   Library,
+  LifeBuoy,
   LogOut,
+  Search,
   Menu,
   Moon,
   PlugZap,
@@ -20,6 +22,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { CommandPalette } from './CommandPalette'
+import { RecoverySheet } from './Recovery'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { initials } from '../lib/format'
@@ -43,7 +47,22 @@ export function Shell() {
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState(currentTheme)
   const [unread, setUnread] = useState(0)
+  const [palette, setPalette] = useState(false)
+  const [recovery, setRecovery] = useState(false)
   const { pathname } = useLocation()
+
+  // Ctrl/⌘+K opens search and commands from anywhere (students only).
+  useEffect(() => {
+    if (user?.role !== 'student') return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPalette(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [user?.role])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -156,7 +175,26 @@ export function Shell() {
             <NavLink to="/inbox" className="pill accent" style={{ marginLeft: 'auto', textDecoration: 'none' }}>{unread} new</NavLink>
           )}
         </div>
+        {user.role === 'student' && (
+          <div className="topbar">
+            <button className="cmd-trigger" type="button" onClick={() => setPalette(true)} aria-label="Search and commands">
+              <Search size={15} />
+              <span>Search deadlines, notes, subjects… or type a task</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            <span className="spacer" />
+            <button className="btn small" type="button" onClick={() => setRecovery(true)}>
+              <LifeBuoy size={14} /> I'm behind
+            </button>
+          </div>
+        )}
         <Outlet />
+        {user.role === 'student' && (
+          <>
+            <CommandPalette open={palette} onClose={() => setPalette(false)} onRecovery={() => setRecovery(true)} />
+            <RecoverySheet open={recovery} onClose={() => setRecovery(false)} />
+          </>
+        )}
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AiBadge, ErrorNote, PageHead, Sheet, Spinner } from '../../components/ui'
 import { api } from '../../lib/api'
 import { relative } from '../../lib/format'
-import type { AiStatus, ChatMessage, Conversation, Subject } from '../../lib/types'
+import type { AiStatus, ChatMessage, Conversation, Home, Subject } from '../../lib/types'
 import { useAction } from '../../lib/useAction'
 import { useLoad } from '../../lib/useLoad'
 import { CitationChip } from './LibraryPage'
@@ -150,6 +150,7 @@ export function TutorPage() {
   const { data: threads, reload } = useLoad<Conversation[]>('/api/tutor/conversations')
   const { data: subjects } = useLoad<Subject[]>('/api/subjects')
   const { data: ai } = useLoad<AiStatus>('/api/ai/status')
+  const { data: home } = useLoad<Home>('/api/home')
   const [mode, setMode] = useState<(typeof MODES)[number]['key']>('tutor')
   const [course, setCourse] = useState(params.get('course') ?? '')
   const [showMemory, setShowMemory] = useState(false)
@@ -219,7 +220,32 @@ export function TutorPage() {
                 Wrong answers become revision cards automatically.
               </p>
               {ai && !ai.available && <p className="small" style={{ marginTop: 10, color: 'var(--warn)' }}>The AI model isn't configured on this server, so the tutor will show the relevant pages from your notes instead.</p>}
-              <p className="small" style={{ marginTop: 14 }}>Start a session on the left, or open a topic and choose “Learn with the tutor”.</p>
+              {home && (home.study.weak_topics.length > 0 || home.exams.length > 0) && (
+                <>
+                  <p className="kicker" style={{ marginTop: 22 }}>Suggested for you, from your own results</p>
+                  <div className="suggest-chips">
+                    {home.study.weak_topics.slice(0, 3).map((w) => (
+                      <button key={w.topic_id} type="button" className="suggest-chip" disabled={busy} onClick={() => create({ mode: 'tutor', topic_id: w.topic_id })}>
+                        <strong style={{ fontWeight: 600 }}>Re-teach me {w.title}</strong>
+                        <small>{w.reason}</small>
+                      </button>
+                    ))}
+                    {home.exams.slice(0, 2).map((e) => (
+                      <button key={e.id} type="button" className="suggest-chip" disabled={busy} onClick={() => create({ mode: 'tutor', course_id: e.course?.id ?? null })}>
+                        <strong style={{ fontWeight: 600 }}>Prepare for {e.title}</strong>
+                        <small>{e.hours_left < 48 ? `in ${Math.round(e.hours_left)}h` : `in ${Math.round(e.hours_left / 24)} days`} · {e.covered_count} of {e.topic_count} topics covered</small>
+                      </button>
+                    ))}
+                    {home.study.weak_topics[0] && (
+                      <button type="button" className="suggest-chip" disabled={busy} onClick={() => create({ mode: 'explain_back', topic_id: home.study.weak_topics[0].topic_id })}>
+                        <strong style={{ fontWeight: 600 }}>Explain {home.study.weak_topics[0].title} back to me</strong>
+                        <small>You teach it; the tutor points out the exact gaps</small>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+              <p className="small" style={{ marginTop: 14 }}>Or start a session on the left, or open a topic and choose “Learn with the tutor”.</p>
             </div>
           )}
         </section>
