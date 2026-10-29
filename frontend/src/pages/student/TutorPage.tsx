@@ -63,7 +63,9 @@ function Chat({ conversation, onUpdated }: { conversation: Conversation; onUpdat
   const [pending, setPending] = useState<string | null>(null)
   const { busy, error, run } = useAction()
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [data?.messages?.length, pending])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [data?.messages?.length, pending])
 
   const send = (e: FormEvent) => {
     e.preventDefault()
