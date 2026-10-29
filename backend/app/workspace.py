@@ -194,6 +194,7 @@ def session_out(session: StudySession, now: datetime | None = None) -> dict:
         "state": session.state,
         "planned_minutes": session.planned_minutes,
         "elapsed_seconds": max(0, seconds),
+        "accumulated_seconds": session.active_seconds,
         "started_at": session.started_at,
         "resumed_at": session.resumed_at,
         "ended_at": session.ended_at,

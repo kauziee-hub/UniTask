@@ -5,6 +5,7 @@ import { ErrorNote, SourcePill, Spinner, StatusPill } from '../../components/ui'
 import { api, openFile, type WorkItem } from '../../lib/api'
 import { dueLabel, minutesLabel, relative } from '../../lib/format'
 import { useLoad } from '../../lib/useLoad'
+import { WorkspaceAside, WorkspaceMain, type Workspace } from './WorkspacePanels'
 
 const EFFORTS = [15, 30, 60, 120, 180, 300, 480]
 
@@ -55,6 +56,11 @@ export function WorkDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: item, setData, error, loading } = useLoad<WorkItem>(`/api/work/${id}`)
+  const { data: space, reload: reloadSpace } = useLoad<Workspace>(`/api/work/${id}/workspace`)
+  const onItem = (next: WorkItem) => {
+    setData(next)
+    void reloadSpace()
+  }
   const [actionError, setActionError] = useState<string | null>(null)
 
   const patch = async (body: Record<string, unknown>) => {
@@ -151,10 +157,12 @@ export function WorkDetailPage() {
               </ul>
             </>
           )}
+          {space && <WorkspaceMain space={space} />}
         </div>
 
         <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <ErrorNote>{actionError}</ErrorNote>
+          {space && <WorkspaceAside space={{ ...space, item }} onItem={onItem} />}
 
           {item.status === 'returned' && (
             <div className="panel">

@@ -74,6 +74,15 @@ export interface WorkItem {
   submission_id: number | null
   changes: Change[]
   priority: Priority
+  kind: string
+  due_confidence: 'verified' | 'manual' | 'inferred'
+  last_verified_at: string | null
+  source_status: string | null
+  local_done_at: string | null
+  snoozed_until: string | null
+  snooze_reason: string | null
+  notes: string | null
+  providers: string[]
 }
 
 export interface FeedChange {
@@ -171,6 +180,14 @@ export interface TeamsStatus {
 
 const TOKEN_KEY = 'unitask.token'
 
+/** Empty in production (the API and the site share an origin); set VITE_API_BASE to point elsewhere. */
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/$/, '')
+
+/** Absolute URL for an API path, leaving presigned S3 links and other absolute URLs untouched. */
+export function apiUrl(path: string) {
+  return /^https?:\/\//.test(path) ? path : `${API_BASE}${path}`
+}
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY)
@@ -213,7 +230,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   let response: Response
   try {
-    response = await fetch(path, { method, headers, body: payload })
+    response = await fetch(apiUrl(path), { method, headers, body: payload })
   } catch {
     throw new ApiError(0, 'Could not reach the UniTask server. Is the backend running?')
   }
@@ -237,6 +254,7 @@ export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
+  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T = void>(path: string) => request<T>('DELETE', path),
 }
 
@@ -256,4 +274,17 @@ export async function openFile(path: string) {
     tab?.close()
     throw error
   }
+}
+
+/** Download an authenticated API response (e.g. the calendar export) as a file. */
+export async function downloadFile(path: string, filename: string) {
+  const token = getToken()
+  const response = await fetch(apiUrl(path), { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!response.ok) throw new ApiError(response.status, 'Download failed.')
+  const href = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = href
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(href)
 }

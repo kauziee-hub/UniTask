@@ -119,7 +119,8 @@ def save_syllabus(db: Session, user_id: int, course_id: int, modules: list[dict]
 
 
 def topic_match_score(topic_title: str, text: str) -> float:
-    terms = [t for t in tokens(topic_title) if len(t) > 2]
+    # Stemmed so "AVL trees" matches "AVL tree rotations" and "stacks" matches "stack".
+    terms = [_stem(t) for t in tokens(topic_title) if len(t) > 2]
     if not terms:
         return 0.0
     lowered = text.lower()

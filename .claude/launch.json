@@ -25,6 +25,20 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "main:app",
+        "--app-dir",
+        "backend",
+        "--port",
+        "8010"
+      ],
+      "port": 8010
     }
   ]
 }

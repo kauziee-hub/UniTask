@@ -89,6 +89,7 @@ Rules:
 - Cite only source labels that appear in SOURCES. Never invent page numbers, books or references.
 - If the sources don't cover the question, say "Your materials don't cover this" and give a short general explanation, clearly labelled as general.
 - Keep replies under 220 words unless the student asks for more. No filler, no praise padding.
+- Write plain text for a chat bubble: no LaTeX, no $...$ maths markup, no markdown headings. Write maths inline as plain text (O(log n), h = n).
 - Mode "{mode}". tutor: teach, then set one short check question that tests understanding rather than recall.
   ask: answer strictly from SOURCES; if they don't contain the answer, say so. explain_back: the student is explaining
   the concept to you; point out exactly what is missing or wrong, kindly, and what to fix.
@@ -122,7 +123,8 @@ def respond(db: Session, conversation: Conversation, user_text: str) -> Message:
     system = SYSTEM.format(brief=learner_brief(db, conversation.user_id, topic), mode=conversation.mode)
 
     try:
-        data = llm.generate(system, history, json_mode=True)
+        # "Answer from my notes" is a lookup, so the fast model is enough; teaching uses the main model.
+        data = llm.generate(system, history, json_mode=True, fast=conversation.mode == "ask")
         reply = str(data.get("reply", "")).strip() or "I couldn't produce an answer this time."
         used = [label for label in data.get("used_sources", []) if label in labelled]
         check = data.get("check") if conversation.mode == "tutor" and isinstance(data.get("check"), dict) else None

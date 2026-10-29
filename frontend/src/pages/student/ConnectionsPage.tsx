@@ -5,6 +5,7 @@ import { ErrorNote, Spinner, Toast } from '../../components/ui'
 import { api, type TeamsStatus } from '../../lib/api'
 import { relative } from '../../lib/format'
 import { useLoad } from '../../lib/useLoad'
+import { MoreConnections } from './MoreConnections'
 
 const OUTCOMES: Record<string, string> = {
   synced: 'Teams connected and your assignments are synced.',
@@ -161,6 +162,7 @@ export function ConnectionsPage() {
         </div>
       )}
 
+      <MoreConnections />
       <Toast message={toast} onDone={() => setToast(null)} />
     </main>
   )

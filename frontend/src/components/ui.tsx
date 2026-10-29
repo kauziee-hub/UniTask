@@ -90,3 +90,49 @@ export function Toast({ message, onDone }: { message: string | null; onDone: () 
     </div>
   )
 }
+
+export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { key: T; label: string; count?: number }[]; value: T; onChange: (key: T) => void }) {
+  return (
+    <div className="tabs" role="tablist">
+      {tabs.map((tab) => (
+        <button key={tab.key} type="button" role="tab" aria-selected={value === tab.key} onClick={() => onChange(tab.key)}>
+          {tab.label}
+          {tab.count !== undefined && tab.count > 0 && <span className="count">{tab.count}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function Meter({ value, max, tone = 'ink', label }: { value: number; max: number; tone?: 'ink' | 'ok' | 'accent' | 'warn'; label?: string }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  return (
+    <span className="meter" role="img" aria-label={label ?? `${value} of ${max}`}>
+      <span className={`fill ${tone}`} style={{ width: `${pct}%` }} />
+    </span>
+  )
+}
+
+export function PageHead({ kicker, title, children }: { kicker?: string; title: ReactNode; children?: ReactNode }) {
+  return (
+    <header className="page-head">
+      <div>
+        {kicker && <p className="kicker">{kicker}</p>}
+        <h1 className="title page-title">{title}</h1>
+      </div>
+      {children && <div className="row page-actions">{children}</div>}
+    </header>
+  )
+}
+
+const PROVIDER_NAMES: Record<string, string> = { bedrock: 'Amazon Bedrock', gemini: 'Google Gemini' }
+
+/** Names the model that actually answered most recently, so a fallback is never shown as the primary. */
+export function AiBadge({ ai }: { ai?: { provider: string; available: boolean; fallback?: string | null; last_used?: string | null } | null }) {
+  if (!ai || !ai.available) return <span className="pill">AI off · using your pages only</span>
+  const used = ai.last_used ?? ai.provider
+  const note = ai.fallback
+    ? `Configured: ${PROVIDER_NAMES[ai.provider] ?? ai.provider}, falls back to ${PROVIDER_NAMES[ai.fallback] ?? ai.fallback}`
+    : undefined
+  return <span className="pill ai" title={note}>{PROVIDER_NAMES[used] ?? used}{ai.last_used && ai.last_used !== ai.provider ? ' (fallback)' : ''}</span>
+}

@@ -1,5 +1,8 @@
 # UniTask 3.0 — AWS deployment handoff for Claude Chrome
 
+> **Actual resources (account 888583764945, ap-south-1):** bucket `unitask-files-888583764945`; RDS `unitask-db.c34kukqgyu7c.ap-south-1.rds.amazonaws.com` (db `unitask`, user `unitask`); ECR `888583764945.dkr.ecr.ap-south-1.amazonaws.com/unitask`; task role `unitask-task-role`.
+> **Bedrock is currently blocked for this new account** (`Operation not allowed`; support case open). The app tries Bedrock first and falls back to Gemini, and switches to Bedrock by itself once AWS lifts the block. No redeploy needed.
+
 Paste this whole file into Claude Chrome (the session with AWS console access).
 Claude Code (on the laptop) builds and tests the app and pushes it to GitHub. Claude Chrome creates
 the AWS resources and deploys. **Region for everything: Asia Pacific (Mumbai) `ap-south-1`.**
@@ -9,7 +12,7 @@ the AWS resources and deploys. **Region for everything: Asia Pacific (Mumbai) `a
 | Need | Service | Why |
 | --- | --- | --- |
 | Website + API | **One Docker container** on **Amazon ECS Express Mode** (Fargate + HTTPS load balancer, URL `https://<service>.ecs.ap-south-1.on.aws`) | The container serves both the React site and the FastAPI API from one origin, so there are no CORS or mixed-content problems. App Runner is closed to new customers since 30 April 2026. |
-| Image build | **AWS CloudShell** → **Amazon ECR** | The GitHub repo `rith758/UniTaskAI` is public, so CloudShell can clone it without a GitHub app. CloudShell has Docker. |
+| Image build | **AWS CloudShell** → **Amazon ECR** | The GitHub repo `kauziee-hub/UniTask` is public, so CloudShell can clone it without a GitHub app. CloudShell has Docker. |
 | Database | **Amazon RDS for PostgreSQL 16**, private, in the default VPC | Persistent, relational, matches the app's migrations. |
 | Files | **Amazon S3** (private bucket, presigned links) | Already supported by the app. |
 | AI | **Amazon Bedrock** (Amazon Nova via the APAC inference profile) | Real inference for the tutor, Q&A, syllabus extraction, flashcards and grading. |
@@ -111,7 +114,7 @@ Claude Code will give the user a **branch name and commit SHA** (branch `release
 REGION=ap-south-1
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 REPO=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/unitask
-rm -rf UniTaskAI && git clone --depth 1 --branch release/unitask-3 https://github.com/rith758/UniTaskAI.git && cd UniTaskAI
+rm -rf UniTask && git clone --depth 1 --branch release/unitask-3 https://github.com/kauziee-hub/UniTask.git && cd UniTask
 git log -1 --format=%H            # must equal the SHA Claude Code gave
 TAG=$(git rev-parse --short HEAD)
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$REGION.amazonaws.com
@@ -140,11 +143,15 @@ ECS console → **Express mode** → Create:
 | `CRON_SECRET` | from step 7 |
 | `AUTH_PROVIDER` | `local` |
 | `STORAGE_PROVIDER` | `s3` |
-| `S3_BUCKET` | bucket from step 2 |
+| `S3_BUCKET` | `unitask-files-888583764945` |
 | `AWS_REGION` | `ap-south-1` |
 | `LLM_PROVIDER` | `bedrock` |
 | `BEDROCK_MODEL_ID` | e.g. `apac.amazon.nova-pro-v1:0` |
 | `BEDROCK_FAST_MODEL_ID` | e.g. `apac.amazon.nova-lite-v1:0` |
+| `LLM_FALLBACK` | `gemini` (used automatically while Bedrock returns "Operation not allowed") |
+| `GEMINI_API_KEY` | the user enters it (same key as backend/.env on the laptop) |
+| `LLM_MODEL` | `gemini-3.5-flash` |
+| `LLM_FAST_MODEL` | `gemini-flash-lite-latest` |
 | `OCR_PROVIDER` | `textract` |
 | `EMAIL_PROVIDER` | `ses` (or `log` if SES isn't verified) |
 | `SES_FROM_ADDRESS` | the verified sender |
@@ -161,9 +168,9 @@ Do **not** set `AWS_PROFILE`, `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY`.
 ### 10. Verify
 
 - `https://<URL>/health` → `{"status":"ok","version":"3.0.0"}`
-- `https://<URL>/api/ai/status` → `"provider":"bedrock"`, `"available":true`
+- `https://<URL>/api/ai/status` → `"provider":"bedrock"`, `"fallback":"gemini"`, `"available":true`. After one AI call, `last_used` shows which model actually answered.
 - Open `https://<URL>/` → sign in as `riya.sharma@example.edu` / `demo-student-2026` (synthetic demo account).
-- CloudWatch → Log groups → the ECS service's log group shows `Database schema at revision 0003` (or later).
+- CloudWatch → Log groups → the ECS service's log group shows `Database schema at revision 0002`.
 
 ### 11. EventBridge reminders
 

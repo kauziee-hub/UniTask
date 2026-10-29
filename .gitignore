@@ -10,3 +10,4 @@ __pycache__/
 *.py[cod]
 backend/.secret_key
 .claude/settings.local.json
+backend/static/
