@@ -1,33 +1,66 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { AppShell } from './components/AppShell'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Shell } from './components/Shell'
+import { Spinner } from './components/ui'
+import { AuthProvider, useAuth } from './lib/auth'
 import { AuthPage } from './pages/AuthPage'
-import { WorkspacePage } from './pages/WorkspacePage'
-import { DashboardPage } from './pages/DashboardPage'
-import './App.css'
-import { AppDataProvider } from './data/AppDataContext'
+import { ClassesPage } from './pages/student/ClassesPage'
+import { ConnectionsPage } from './pages/student/ConnectionsPage'
+import { StudentCoursePage } from './pages/student/StudentCoursePage'
+import { TodayPage } from './pages/student/TodayPage'
+import { WorkDetailPage } from './pages/student/WorkDetailPage'
+import { WorkPage } from './pages/student/WorkPage'
+import { CourseworkReviewPage } from './pages/teacher/CourseworkReviewPage'
+import { TeacherCoursePage } from './pages/teacher/TeacherCoursePage'
+import { TeacherHome } from './pages/teacher/TeacherHome'
 
-function App() {
+function Routed() {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div style={{ padding: 48 }}>
+        <Spinner />
+      </div>
+    )
+  }
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/register" element={<AuthPage mode="register" />} />
+        <Route path="*" element={<AuthPage mode="login" />} />
+      </Routes>
+    )
+  }
   return (
-    <AppDataProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<AuthPage mode="login" />} />
-          <Route path="/register" element={<AuthPage mode="register" />} />
-          <Route element={<AppShell />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="assignments" element={<WorkspacePage page="assignments" />} />
-            <Route path="calendar" element={<WorkspacePage page="calendar" />} />
-            <Route path="subjects" element={<WorkspacePage page="subjects" />} />
-            <Route path="assistant" element={<WorkspacePage page="assistant" />} />
-            <Route path="integrations" element={<WorkspacePage page="integrations" />} />
-            <Route path="settings" element={<WorkspacePage page="settings" />} />
-            <Route path="timetable" element={<WorkspacePage page="timetable" />} />
-            <Route path="*" element={<WorkspacePage page="not-found" />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AppDataProvider>
+    <Routes>
+      <Route element={<Shell />}>
+        {user.role === 'student' ? (
+          <>
+            <Route index element={<TodayPage />} />
+            <Route path="work" element={<WorkPage />} />
+            <Route path="work/:id" element={<WorkDetailPage />} />
+            <Route path="classes" element={<ClassesPage />} />
+            <Route path="classes/:id" element={<StudentCoursePage />} />
+            <Route path="connections" element={<ConnectionsPage />} />
+          </>
+        ) : (
+          <>
+            <Route index element={<TeacherHome />} />
+            <Route path="classes/:id" element={<TeacherCoursePage />} />
+            <Route path="coursework/:id" element={<CourseworkReviewPage />} />
+          </>
+        )}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routed />
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}

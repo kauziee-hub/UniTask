@@ -15,6 +15,33 @@ IMAGE_SIGNATURES: dict[str, tuple[str, bytes]] = {
 }
 
 
+MAX_FILE_BYTES = 15 * 1024 * 1024
+_ZIP = b"PK\x03\x04"
+# extension -> (content type, required leading bytes, or None for UTF-8 text)
+DOCUMENT_TYPES: dict[str, tuple[str, bytes | None]] = {
+    ".pdf": ("application/pdf", b"%PDF"),
+    ".docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", _ZIP),
+    ".pptx": ("application/vnd.openxmlformats-officedocument.presentationml.presentation", _ZIP),
+    ".xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", _ZIP),
+    ".zip": ("application/zip", _ZIP),
+    ".png": ("image/png", b"\x89PNG\r\n\x1a\n"),
+    ".jpg": ("image/jpeg", b"\xff\xd8\xff"),
+    ".jpeg": ("image/jpeg", b"\xff\xd8\xff"),
+    ".txt": ("text/plain", None),
+    ".md": ("text/markdown", None),
+    ".csv": ("text/csv", None),
+    ".py": ("text/x-python", None),
+    ".c": ("text/x-c", None),
+    ".cpp": ("text/x-c++", None),
+    ".java": ("text/x-java", None),
+    ".js": ("text/javascript", None),
+    ".sql": ("text/plain", None),
+    ".ipynb": ("application/x-ipynb+json", None),
+    ".ics": ("text/calendar", None),
+    ".json": ("application/json", None),
+}
+
+
 class UploadValidationError(ValueError):
     pass
 
@@ -42,6 +69,8 @@ class StorageAdapter(Protocol):
     def delete(self, key: str) -> None: ...
 
     def get_local_path(self, key: str) -> Path | None: ...
+
+    def read(self, key: str) -> bytes: ...
 
     def retrieval_url(self, key: str) -> str: ...
 
@@ -76,6 +105,27 @@ def validate_image(filename: str | None, declared_content_type: str | None, cont
     )
 
 
+def validate_document(filename: str | None, content: bytes, max_bytes: int = MAX_FILE_BYTES) -> ValidatedUpload:
+    """Validate a coursework attachment, submission or study material by its extension and actual contents."""
+    if not content:
+        raise UploadValidationError("The selected file is empty.")
+    if len(content) > max_bytes:
+        raise UploadTooLargeError(f"Files can be at most {max_bytes // (1024 * 1024)} MB.")
+    safe_name = Path(filename or "").name
+    spec = DOCUMENT_TYPES.get(Path(safe_name).suffix.lower())
+    if spec is None:
+        raise UploadValidationError(f"Unsupported file type. Use one of: {', '.join(sorted(DOCUMENT_TYPES))}.")
+    content_type, signature = spec
+    if signature is None:
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise UploadValidationError("Text files must be UTF-8.") from exc
+    elif not content.startswith(signature) or (signature == b"RIFF" and content[8:12] != b"WEBP"):
+        raise UploadValidationError("The file contents do not match its extension.")
+    return ValidatedUpload(filename=safe_name, content_type=content_type, content=content)
+
+
 class LocalStorage:
     provider = "local"
 
@@ -85,7 +135,10 @@ class LocalStorage:
         if root is not None:
             self.root = root.resolve()
         elif configured_root:
-            self.root = Path(configured_root).resolve()
+            configured = Path(configured_root)
+            if not configured.is_absolute():
+                configured = Path(__file__).resolve().parents[1] / configured
+            self.root = configured.resolve()
         else:
             self.root = default_root.resolve()
 
@@ -112,6 +165,12 @@ class LocalStorage:
 
     def get_local_path(self, key: str) -> Path:
         return self._path(key)
+
+    def read(self, key: str) -> bytes:
+        try:
+            return self._path(key).read_bytes()
+        except OSError as exc:
+            raise StorageError("The stored file is missing.") from exc
 
     def retrieval_url(self, key: str) -> str:
         return f"/api/timetables/{Path(key).stem}/file"
@@ -145,8 +204,8 @@ class S3Storage:
         try:
             self.client.put_object(Bucket=self.bucket, Key=key, Body=content, ContentType=content_type)
         except self._boto_errors as exc:
-            logger.exception("S3 timetable upload failed.")
-            raise StorageError("Could not store the timetable in S3.") from exc
+            logger.exception("S3 upload failed.")
+            raise StorageError("Could not store the file in S3.") from exc
 
     def delete(self, key: str) -> None:
         try:
@@ -159,11 +218,23 @@ class S3Storage:
         del key
         return None
 
-    def retrieval_url(self, key: str) -> str:
+    def read(self, key: str) -> bytes:
+        try:
+            return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        except self._boto_errors as exc:
+            logger.exception("S3 read failed.")
+            raise StorageError("Could not read the file from S3.") from exc
+
+    def retrieval_url(self, key: str, download_name: str | None = None, inline: bool = False) -> str:
+        params = {"Bucket": self.bucket, "Key": key}
+        if download_name:
+            safe_name = download_name.replace('"', "").replace("\\", "")
+            disposition = "inline" if inline else "attachment"
+            params["ResponseContentDisposition"] = f'{disposition}; filename="{safe_name}"'
         try:
             return self.client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": self.bucket, "Key": key},
+                Params=params,
                 ExpiresIn=PRESIGNED_URL_TTL_SECONDS,
             )
         except self._boto_errors as exc:

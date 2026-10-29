@@ -1,51 +1,150 @@
 import { useState, type FormEvent } from 'react'
-import { Command } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ErrorNote } from '../components/ui'
+import type { Role } from '../lib/api'
+import { useAuth } from '../lib/auth'
 
-interface AuthPageProps {
-  mode: 'login' | 'register'
-}
-
-export function AuthPage({ mode }: AuthPageProps) {
-  const [showNotice, setShowNotice] = useState(false)
+export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+  const { login, register, confirm } = useAuth()
+  const navigate = useNavigate()
+  const [role, setRole] = useState<Role>('student')
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
   const isRegister = mode === 'register'
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setShowNotice(true)
+    const form = new FormData(event.currentTarget)
+    setBusy(true)
+    setError(null)
+    try {
+      if (confirming) {
+        const response = await confirm(email, String(form.get('code')))
+        setConfirming(false)
+        setInfo(response.message)
+        navigate('/login')
+        return
+      }
+      const password = String(form.get('password'))
+      const response = isRegister
+        ? await register(String(form.get('name')), email, password, role)
+        : await login(email, password)
+      if (response.needs_confirmation) {
+        setConfirming(true)
+        setInfo(response.message)
+      } else {
+        navigate('/')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <main className="auth-layout">
-      <aside className="auth-aside">
-        <Link to="/" className="auth-brand" style={{ textDecoration: 'none' }}>
-          <span className="brand-mark"><Command size={18} /></span>
-          UniTask AI
-        </Link>
-        <div className="auth-message">
-          <h1>Your semester, in sync.</h1>
-          <p>Bring your assignments, deadlines, and study plans into one calm, focused workspace.</p>
-        </div>
-        <div className="auth-aside-footer">A little more clarity, one deadline at a time.</div>
-      </aside>
-      <section className="auth-main">
-        <div className="auth-form-wrap">
-          <Link to="/" className="auth-mobile-brand"><span className="brand-mark"><Command size={17} /></span>UniTask AI</Link>
-          <h2>{isRegister ? 'Create your account' : 'Welcome back'}</h2>
-          <p className="auth-intro">{isRegister ? 'Start organizing your academic life today.' : 'Sign in to continue to your workspace.'}</p>
-          <form onSubmit={handleSubmit}>
-            {isRegister && <div className="form-field"><label htmlFor="name">Full name</label><input id="name" name="name" autoComplete="name" placeholder="Alex Morgan" required /></div>}
-            <div className="form-field"><label htmlFor="email">University email</label><input id="email" name="email" type="email" autoComplete="email" placeholder="you@university.edu" required /></div>
-            <div className="form-field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete={isRegister ? 'new-password' : 'current-password'} placeholder="At least 8 characters" minLength={8} required /></div>
-            {isRegister && <div className="form-field"><label htmlFor="university">University <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></label><input id="university" name="university" autoComplete="organization" placeholder="Your university" /></div>}
-            <button className="primary-button auth-submit" type="submit">{isRegister ? 'Create account' : 'Sign in'}</button>
-          </form>
-          {showNotice && <div className="auth-note" role="status">Authentication is not connected yet. This form is a visual foundation only; no account was created or signed in.</div>}
-          <div className="auth-switch">
-            {isRegister ? 'Already have an account? ' : 'New to UniTask AI? '}
-            <Link to={isRegister ? '/login' : '/register'}>{isRegister ? 'Sign in' : 'Create an account'}</Link>
+    <main className="auth">
+      <section className="auth-story">
+        <span className="wordmark" style={{ padding: 0 }}>UniTask</span>
+        <div>
+          <p className="kicker">For students who have too much due</p>
+          <h1 className="display" style={{ marginTop: 16 }}>
+            Know what to do <em>next</em>, not just what's due.
+          </h1>
+          <div className="auth-points">
+            <div><span>01</span><span>Your Teams assignments arrive on their own. No copying deadlines by hand.</span></div>
+            <div><span>02</span><span>Everything is ranked by how much work it needs against how little time is left.</span></div>
+            <div><span>03</span><span>Tell it you have two free hours and it tells you how to spend them.</span></div>
+            <div><span>04</span><span>Teachers post work, students turn it in, and grades come back in the same place.</span></div>
           </div>
         </div>
+        <p className="muted" style={{ fontSize: 12.5 }}>Built for VIT students and faculty.</p>
+      </section>
+
+      <section className="auth-form">
+        <form onSubmit={submit}>
+          <div>
+            <h2 className="title">{confirming ? 'Check your email' : isRegister ? 'Create an account' : 'Sign in'}</h2>
+            <p className="muted" style={{ marginTop: 6 }}>
+              {confirming
+                ? `Enter the code sent to ${email}.`
+                : isRegister
+                  ? 'Takes less than a minute.'
+                  : 'Welcome back.'}
+            </p>
+          </div>
+
+          {info && <div className="note ok">{info}</div>}
+          <ErrorNote>{error}</ErrorNote>
+
+          {confirming ? (
+            <label className="field">
+              <span>Verification code</span>
+              <input className="input mono" name="code" inputMode="numeric" autoComplete="one-time-code" required />
+            </label>
+          ) : (
+            <>
+              {isRegister && (
+                <>
+                  <fieldset className="role-pick" style={{ border: 0, padding: 0, margin: 0 }}>
+                    <legend className="sr-only">I am a</legend>
+                    <label>
+                      <input type="radio" name="role" checked={role === 'student'} onChange={() => setRole('student')} />
+                      <strong>Student</strong>
+                      <small>Track and finish work</small>
+                    </label>
+                    <label>
+                      <input type="radio" name="role" checked={role === 'teacher'} onChange={() => setRole('teacher')} />
+                      <strong>Teacher</strong>
+                      <small>Run classes, grade work</small>
+                    </label>
+                  </fieldset>
+                  <label className="field">
+                    <span>Full name</span>
+                    <input className="input" name="name" autoComplete="name" required maxLength={120} />
+                  </label>
+                </>
+              )}
+              <label className="field">
+                <span>Email</span>
+                <input
+                  className="input"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Password {isRegister && <span className="hint">· at least 8 characters</span>}</span>
+                <input
+                  className="input"
+                  name="password"
+                  type="password"
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  minLength={isRegister ? 8 : 1}
+                  required
+                />
+              </label>
+            </>
+          )}
+
+          <button className="btn primary" type="submit" disabled={busy} style={{ height: 40 }}>
+            {busy ? 'One moment…' : confirming ? 'Verify' : isRegister ? 'Create account' : 'Sign in'}
+          </button>
+
+          {!confirming && (
+            <p className="muted" style={{ fontSize: 13 }}>
+              {isRegister ? 'Already have an account? ' : 'New here? '}
+              <Link to={isRegister ? '/login' : '/register'}>{isRegister ? 'Sign in' : 'Create an account'}</Link>
+            </p>
+          )}
+        </form>
       </section>
     </main>
   )

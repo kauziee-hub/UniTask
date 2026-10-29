@@ -1,5 +1,12 @@
 # UniTask AI — Implementation Progress
 
+> **Current status (2026-10-29): UniTask 3.0 is in progress. The handoff is in [HANDOFF_NEXT_SESSION.md](./HANDOFF_NEXT_SESSION.md).**
+> - Done: backup snapshot; Alembic migrations 0001 and 0002 (checked by hand up and down); backend services for LLM (Gemini), extraction, retrieval, syllabus/PYQ, ingest engine, ICS, scheduler, exam rescue, revision, personalised tutor, jobs/SQS worker/SES reminders.
+> - Not started: routers for the new services, tests for them, the frontend for the new modules, the VTOP extension, deploy artifacts and docs/deploy/.
+> - Tests: backend 20/20 pass. Not yet run for the new modules, which have no tests yet.
+> - Release readiness: **NOT release-ready.**
+
+
 ## Project audit
 
 Completed 2026-10-23. See [ARCHITECTURE_DECISIONS.md](./ARCHITECTURE_DECISIONS.md) for the audit, planned structure, data model, API, security and infrastructure decisions.
